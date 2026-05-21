@@ -39,7 +39,9 @@ import { useUpdateOption } from '../hooks/use-update-option'
 const sensitiveSchema = z.object({
   CheckSensitiveEnabled: z.boolean(),
   CheckSensitiveOnPromptEnabled: z.boolean(),
+  CheckSensitiveOnOutputEnabled: z.boolean(),
   SensitiveWords: z.string().optional(),
+  SensitiveOutputRegexRules: z.string().optional(),
 })
 
 type SensitiveFormValues = z.infer<typeof sensitiveSchema>
@@ -130,6 +132,31 @@ export function SensitiveWordsSection({
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name='CheckSensitiveOnOutputEnabled'
+              render={({ field }) => (
+                <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                  <div className='space-y-0.5'>
+                    <FormLabel className='text-base'>
+                      {t('Inspect model outputs')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t(
+                        'When enabled, response text is checked against regex rules and blocked once matched.'
+                      )}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
           </div>
 
           <FormField
@@ -148,6 +175,29 @@ export function SensitiveWordsSection({
                 <FormDescription>
                   {t(
                     'Each line represents one keyword. Leave blank to disable the list but keep the switch states.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='SensitiveOutputRegexRules'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Blocked output regex rules')}</FormLabel>
+                <FormControl>
+                  <Textarea
+                    rows={8}
+                    placeholder={t('Enter one regular expression per line')}
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Each line is a regular expression. Invalid patterns will block updates and return an error at runtime.'
                   )}
                 </FormDescription>
                 <FormMessage />

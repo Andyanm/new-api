@@ -240,6 +240,9 @@ func InitLogDB() (err error) {
 		}
 		common.SysLog("database migration started")
 		err = migrateLOGDB()
+		if err == nil {
+			err = InitConversationLogDB()
+		}
 		return err
 	} else {
 		common.FatalLog(err)

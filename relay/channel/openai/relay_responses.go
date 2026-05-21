@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
@@ -39,6 +40,11 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		c.Set("image_generation_call_quality", responsesResponse.GetQuality())
 		c.Set("image_generation_call_size", responsesResponse.GetSize())
 	}
+	if matched, rules, regexErr := service.CheckSensitiveOutputRegex(service.ExtractOutputTextFromResponses(&responsesResponse)); regexErr != nil {
+		return nil, types.NewError(regexErr, types.ErrorCodeSensitiveWordsDetected)
+	} else if matched {
+		return nil, types.NewError(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")), types.ErrorCodeSensitiveWordsDetected)
+	}
 
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
@@ -54,6 +60,16 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		}
 	}
 	if info == nil || info.ResponsesUsageInfo == nil || info.ResponsesUsageInfo.BuiltInTools == nil {
+		model.RecordConversationLogAsync(model.ConversationLog{
+			UserId:     c.GetInt("id"),
+			Username:   c.GetString("username"),
+			TokenId:    c.GetInt("token_id"),
+			TokenName:  c.GetString("token_name"),
+			ModelName:  info.OriginModelName,
+			RequestId:  c.GetString("X-Request-Id"),
+			PromptText: c.GetString("prompt_text"),
+			ReplyText:  service.ExtractOutputTextFromResponses(&responsesResponse),
+		})
 		return &usage, nil
 	}
 	// 解析 Tools 用量
@@ -113,7 +129,13 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 				}
 			}
 		case "response.output_text.delta":
-			// 处理输出文本
+			if matched, rules, regexErr := service.CheckSensitiveOutputRegex(streamResponse.Delta); regexErr != nil {
+				sr.Stop(regexErr)
+				return
+			} else if matched {
+				sr.Stop(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")))
+				return
+			}
 			responseTextBuilder.WriteString(streamResponse.Delta)
 		case dto.ResponsesOutputTypeItemDone:
 			// 函数调用处理
@@ -145,6 +167,16 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	}
 
 	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	model.RecordConversationLogAsync(model.ConversationLog{
+		UserId:     c.GetInt("id"),
+		Username:   c.GetString("username"),
+		TokenId:    c.GetInt("token_id"),
+		TokenName:  c.GetString("token_name"),
+		ModelName:  info.OriginModelName,
+		RequestId:  c.GetString("X-Request-Id"),
+		PromptText: c.GetString("prompt_text"),
+		ReplyText:  responseTextBuilder.String(),
+	})
 
 	return usage, nil
 }

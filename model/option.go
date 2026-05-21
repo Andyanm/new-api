@@ -170,8 +170,11 @@ func InitOptionMap() {
 	common.OptionMap["SelfUseModeEnabled"] = strconv.FormatBool(operation_setting.SelfUseModeEnabled)
 	common.OptionMap["ModelRequestRateLimitEnabled"] = strconv.FormatBool(setting.ModelRequestRateLimitEnabled)
 	common.OptionMap["CheckSensitiveOnPromptEnabled"] = strconv.FormatBool(setting.CheckSensitiveOnPromptEnabled)
+	common.OptionMap["CheckSensitiveOnOutputEnabled"] = strconv.FormatBool(setting.CheckSensitiveOnOutputEnabled)
+	common.OptionMap["ConversationLogEnabled"] = strconv.FormatBool(setting.ConversationLogEnabled)
 	common.OptionMap["StopOnSensitiveEnabled"] = strconv.FormatBool(setting.StopOnSensitiveEnabled)
 	common.OptionMap["SensitiveWords"] = setting.SensitiveWordsToString()
+	common.OptionMap["SensitiveOutputRegexRules"] = setting.SensitiveOutputRegexRulesToString()
 	common.OptionMap["StreamCacheQueueLength"] = strconv.Itoa(setting.StreamCacheQueueLength)
 	common.OptionMap["AutomaticDisableKeywords"] = operation_setting.AutomaticDisableKeywordsToString()
 	common.OptionMap["AutomaticDisableStatusCodes"] = operation_setting.AutomaticDisableStatusCodesToString()
@@ -315,6 +318,10 @@ func updateOptionMap(key string, value string) (err error) {
 			operation_setting.SelfUseModeEnabled = boolValue
 		case "CheckSensitiveOnPromptEnabled":
 			setting.CheckSensitiveOnPromptEnabled = boolValue
+		case "CheckSensitiveOnOutputEnabled":
+			setting.CheckSensitiveOnOutputEnabled = boolValue
+		case "ConversationLogEnabled":
+			setting.ConversationLogEnabled = boolValue
 		case "ModelRequestRateLimitEnabled":
 			setting.ModelRequestRateLimitEnabled = boolValue
 		case "StopOnSensitiveEnabled":
@@ -533,6 +540,8 @@ func updateOptionMap(key string, value string) (err error) {
 		common.QuotaPerUnit, _ = strconv.ParseFloat(value, 64)
 	case "SensitiveWords":
 		setting.SensitiveWordsFromString(value)
+	case "SensitiveOutputRegexRules":
+		setting.SensitiveOutputRegexRulesFromString(value)
 	case "AutomaticDisableKeywords":
 		operation_setting.AutomaticDisableKeywordsFromString(value)
 	case "AutomaticDisableStatusCodes":

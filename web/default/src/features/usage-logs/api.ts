@@ -109,3 +109,19 @@ export const getAllTaskLogs = (params: GetTaskLogsParams) =>
 
 export const getUserTaskLogs = (params: GetTaskLogsParams) =>
   fetchLogs('/api/task', params, false)
+
+export async function getConversationLogs(params: {
+  p?: number
+  page_size?: number
+  username?: string
+  token_name?: string
+  model_name?: string
+}) {
+  const queryParams = buildQueryParams({
+    p: params.p || 1,
+    page_size: params.page_size || 20,
+    ...params,
+  })
+  const res = await api.get(`/api/log/conversation?${queryParams}`)
+  return res.data
+}
