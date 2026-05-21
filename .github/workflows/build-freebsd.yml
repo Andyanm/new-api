@@ -8,113 +8,100 @@ permissions:
   actions: write
 
 env:
-  UPSTREAM_REPO: QuantumNous/new-api
+  GOFLAGS: -buildvcs=false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    name: Build new-api
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      # -----------------------
-      # Resolve upstream tag (safe version)
-      # -----------------------
-      - name: Resolve upstream tag
-        id: upstream
+      - name: Set version
+        id: version
         run: |
-          tag=$(curl -fsSL https://api.github.com/repos/${UPSTREAM_REPO}/tags \
-            | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['name'] if d else '')")
+          VERSION="$(git rev-parse --short HEAD)"
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Build version: $VERSION"
 
-          if [ -z "$tag" ]; then
-            echo "tag=main" >> $GITHUB_OUTPUT
-          else
-            echo "tag=$tag" >> $GITHUB_OUTPUT
-          fi
-
-      # -----------------------
-      # Clone upstream
-      # -----------------------
-      - name: Clone Repo
-        run: |
-          git clone --depth 1 \
-            --branch "${{ steps.upstream.outputs.tag }}" \
-            https://github.com/${UPSTREAM_REPO}.git new-api
-
-      # -----------------------
-      # Frontend build
-      # -----------------------
-      - name: Setup Bun
+      - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Build Frontend (default)
+        env:
+          CI: ""
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          DISABLE_ESLINT_PLUGIN: "true"
+          VITE_REACT_APP_VERSION: ${{ steps.version.outputs.tag }}
         run: |
-          cd new-api/web/default
+          cd web/default
           bun install
           bun run build
 
       - name: Build Frontend (classic)
+        env:
+          CI: ""
+          VITE_REACT_APP_VERSION: ${{ steps.version.outputs.tag }}
         run: |
-          cd new-api/web/classic
+          cd web/classic
           bun install
           bun run build
 
-      # -----------------------
-      # Backend FreeBSD build
-      # -----------------------
       - name: Build Backend (FreeBSD)
         uses: vmactions/freebsd-vm@v1
         with:
           usesh: true
           release: 13.2
-
+          copyback: true
           prepare: |
+            set -e
             pkg update -f || true
-
             pkg install -y \
-              jq wget curl git gcc bash gawk gsed
+              jq \
+              wget \
+              curl \
+              git \
+              gcc \
+              bash \
+              gawk \
+              gsed
 
             wget https://dl.google.com/go/go1.25.6.freebsd-amd64.tar.gz
             tar -C /usr/local -xzf go1.25.6.freebsd-amd64.tar.gz
-            rm go1.25.6.freebsd-amd64.tar.gz
+            rm -f go1.25.6.freebsd-amd64.tar.gz
             ln -sf /usr/local/go/bin/go /usr/local/bin/go
 
           run: |
-            cd new-api
-
+            set -e
+            cd "$GITHUB_WORKSPACE"
+            go version
             go mod download
-
             go build \
-              -ldflags "-s -w \
-              -X github.com/QuantumNous/new-api/common.Version=${{ steps.upstream.outputs.tag }} \
-              -extldflags '-static'" \
+              -buildvcs=false \
+              -ldflags "-s -w -X github.com/QuantumNous/new-api/common.Version=${{ steps.version.outputs.tag }} -extldflags '-static'" \
               -o new-api
 
-      # -----------------------
-      # Upload
-      # -----------------------
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: new-api-freebsd
-          path: new-api/new-api
+          path: new-api
 
-      # -----------------------
-      # Release
-      # -----------------------
       - name: Create release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: build-${{ steps.upstream.outputs.tag }}
-          files: new-api/new-api
+          tag_name: build-${{ steps.version.outputs.tag }}
+          files: new-api
           generate_release_notes: true
 
-      # -----------------------
-      # Cleanup
-      # -----------------------
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
