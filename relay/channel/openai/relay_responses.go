@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
@@ -59,6 +60,16 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		}
 	}
 	if info == nil || info.ResponsesUsageInfo == nil || info.ResponsesUsageInfo.BuiltInTools == nil {
+		model.RecordConversationLogAsync(model.ConversationLog{
+			UserId:     c.GetInt("id"),
+			Username:   c.GetString("username"),
+			TokenId:    c.GetInt("token_id"),
+			TokenName:  c.GetString("token_name"),
+			ModelName:  info.OriginModelName,
+			RequestId:  c.GetString("X-Request-Id"),
+			PromptText: c.GetString("prompt_text"),
+			ReplyText:  service.ExtractOutputTextFromResponses(&responsesResponse),
+		})
 		return &usage, nil
 	}
 	// 解析 Tools 用量
@@ -156,6 +167,16 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	}
 
 	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	model.RecordConversationLogAsync(model.ConversationLog{
+		UserId:     c.GetInt("id"),
+		Username:   c.GetString("username"),
+		TokenId:    c.GetInt("token_id"),
+		TokenName:  c.GetString("token_name"),
+		ModelName:  info.OriginModelName,
+		RequestId:  c.GetString("X-Request-Id"),
+		PromptText: c.GetString("prompt_text"),
+		ReplyText:  responseTextBuilder.String(),
+	})
 
 	return usage, nil
 }

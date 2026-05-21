@@ -171,6 +171,7 @@ func InitOptionMap() {
 	common.OptionMap["ModelRequestRateLimitEnabled"] = strconv.FormatBool(setting.ModelRequestRateLimitEnabled)
 	common.OptionMap["CheckSensitiveOnPromptEnabled"] = strconv.FormatBool(setting.CheckSensitiveOnPromptEnabled)
 	common.OptionMap["CheckSensitiveOnOutputEnabled"] = strconv.FormatBool(setting.CheckSensitiveOnOutputEnabled)
+	common.OptionMap["ConversationLogEnabled"] = strconv.FormatBool(setting.ConversationLogEnabled)
 	common.OptionMap["StopOnSensitiveEnabled"] = strconv.FormatBool(setting.StopOnSensitiveEnabled)
 	common.OptionMap["SensitiveWords"] = setting.SensitiveWordsToString()
 	common.OptionMap["SensitiveOutputRegexRules"] = setting.SensitiveOutputRegexRulesToString()
@@ -319,6 +320,8 @@ func updateOptionMap(key string, value string) (err error) {
 			setting.CheckSensitiveOnPromptEnabled = boolValue
 		case "CheckSensitiveOnOutputEnabled":
 			setting.CheckSensitiveOnOutputEnabled = boolValue
+		case "ConversationLogEnabled":
+			setting.ConversationLogEnabled = boolValue
 		case "ModelRequestRateLimitEnabled":
 			setting.ModelRequestRateLimitEnabled = boolValue
 		case "StopOnSensitiveEnabled":

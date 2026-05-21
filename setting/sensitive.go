@@ -5,6 +5,7 @@ import "strings"
 var CheckSensitiveEnabled = true
 var CheckSensitiveOnPromptEnabled = true
 var CheckSensitiveOnOutputEnabled = false
+var ConversationLogEnabled = false
 
 //var CheckSensitiveOnCompletionEnabled = true
 

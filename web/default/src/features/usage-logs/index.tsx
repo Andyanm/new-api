@@ -30,6 +30,7 @@ import {
   useUsageLogsContext,
 } from './components/usage-logs-provider'
 import { UsageLogsTable } from './components/usage-logs-table'
+import { ConversationLogsPanel } from './components/conversation-logs-panel'
 import {
   isUsageLogsSectionId,
   USAGE_LOGS_DEFAULT_SECTION,
@@ -46,6 +47,10 @@ const SECTION_META: Record<
   common: {
     titleKey: 'Common Logs',
     descriptionKey: 'View and manage your API usage logs',
+  },
+  conversation: {
+    titleKey: 'Conversation Logs',
+    descriptionKey: 'View prompt and response history by user and key',
   },
   drawing: {
     titleKey: 'Drawing Logs',
@@ -109,10 +114,9 @@ function UsageLogsContent() {
     [navigate]
   )
 
-  const pageMeta =
-    activeCategory === 'common' ? SECTION_META.common : SECTION_META.task
+  const pageMeta = SECTION_META[activeCategory] ?? SECTION_META.common
   const showTaskSwitcher =
-    activeCategory !== 'common' && visibleSections.length > 1
+    activeCategory !== 'common' && activeCategory !== 'conversation' && visibleSections.length > 1
 
   return (
     <>
@@ -136,7 +140,11 @@ function UsageLogsContent() {
                 </TabsList>
               </Tabs>
             )}
-            <UsageLogsTable logCategory={activeCategory} />
+            {activeCategory === 'conversation' ? (
+              <ConversationLogsPanel />
+            ) : (
+              <UsageLogsTable logCategory={activeCategory} />
+            )}
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

@@ -29,6 +29,12 @@ const USAGE_LOGS_SECTIONS = [
     build: () => null, // Content is rendered directly in the page component
   },
   {
+    id: 'conversation',
+    titleKey: 'Conversation Logs',
+    descriptionKey: 'View prompt and response history by user and key',
+    build: () => null,
+  },
+  {
     id: 'drawing',
     titleKey: 'Drawing Logs',
     descriptionKey: 'View and manage your drawing logs',

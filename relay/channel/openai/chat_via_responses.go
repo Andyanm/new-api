@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	modelpkg "github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
@@ -92,6 +93,16 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	}
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
+	modelpkg.RecordConversationLogAsync(modelpkg.ConversationLog{
+		UserId:     c.GetInt("id"),
+		Username:   c.GetString("username"),
+		TokenId:    c.GetInt("token_id"),
+		TokenName:  c.GetString("token_name"),
+		ModelName:  info.OriginModelName,
+		RequestId:  c.GetString("X-Request-Id"),
+		PromptText: c.GetString("prompt_text"),
+		ReplyText:  service.ExtractOutputTextFromResponses(&responsesResp),
+	})
 	return usage, nil
 }
 
@@ -558,5 +569,15 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 	if info.RelayFormat == types.RelayFormatOpenAI {
 		helper.Done(c)
 	}
+	modelpkg.RecordConversationLogAsync(modelpkg.ConversationLog{
+		UserId:     c.GetInt("id"),
+		Username:   c.GetString("username"),
+		TokenId:    c.GetInt("token_id"),
+		TokenName:  c.GetString("token_name"),
+		ModelName:  info.OriginModelName,
+		RequestId:  c.GetString("X-Request-Id"),
+		PromptText: c.GetString("prompt_text"),
+		ReplyText:  outputText.String(),
+	})
 	return usage, nil
 }
