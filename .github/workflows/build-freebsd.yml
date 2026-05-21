@@ -56,11 +56,15 @@ jobs:
         uses: vmactions/freebsd-vm@v1
         with:
           usesh: true
-          # 关键修复：升级至 14.1 确保 pkg 软件源向后兼容性，彻底解决版本冲突崩溃
+          # 升级至 14.1 确保与官方最新软件源完全兼容
           release: 14.1
+          # 关键新增：强行将 Linux 宿主机刚编译好的前端静态文件同步进 FreeBSD 虚拟机
+          copy: true
 
           prepare: |
-            pkg update -y
+            # 修复：去掉 update 后面的 -y（FreeBSD 的 pkg update 不支持且不需要 -y）
+            pkg update
+            
             pkg install -y \
               jq \
               wget \
@@ -78,13 +82,13 @@ jobs:
             ln -sf /usr/local/go/bin/go /usr/local/bin/go
 
           run: |
-            # 动态注册安全的 Git 工作目录，防止虚拟机内 Git 权限报错
+            # 动态注册安全的 Git 工作目录
             git config --global --add safe.directory "${{ github.workspace }}"
 
             go version
             go mod download
 
-            # 静态编译：将前端打包后的静态资源隐式包含（通过 Go 1.16+ embed 机制），并注入版本号
+            # 静态编译：注入版本号并启用静态链接
             go build \
               -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=${{ steps.version.outputs.tag }}' -extldflags '-static'" \
               -o new-api
