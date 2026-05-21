@@ -4,6 +4,7 @@ import "strings"
 
 var CheckSensitiveEnabled = true
 var CheckSensitiveOnPromptEnabled = true
+var CheckSensitiveOnOutputEnabled = false
 
 //var CheckSensitiveOnCompletionEnabled = true
 
@@ -18,6 +19,9 @@ var StreamCacheQueueLength = 0
 var SensitiveWords = []string{
 	"test_sensitive",
 }
+
+// SensitiveOutputRegexRules output 正则规则，一行一个
+var SensitiveOutputRegexRules []string
 
 func SensitiveWordsToString() string {
 	return strings.Join(SensitiveWords, "\n")
@@ -34,8 +38,27 @@ func SensitiveWordsFromString(s string) {
 	}
 }
 
+func SensitiveOutputRegexRulesToString() string {
+	return strings.Join(SensitiveOutputRegexRules, "\n")
+}
+
+func SensitiveOutputRegexRulesFromString(s string) {
+	SensitiveOutputRegexRules = []string{}
+	sw := strings.Split(s, "\n")
+	for _, w := range sw {
+		w = strings.TrimSpace(w)
+		if w != "" {
+			SensitiveOutputRegexRules = append(SensitiveOutputRegexRules, w)
+		}
+	}
+}
+
 func ShouldCheckPromptSensitive() bool {
 	return CheckSensitiveEnabled && CheckSensitiveOnPromptEnabled
+}
+
+func ShouldCheckOutputSensitive() bool {
+	return CheckSensitiveEnabled && CheckSensitiveOnOutputEnabled
 }
 
 //func ShouldCheckCompletionSensitive() bool {
