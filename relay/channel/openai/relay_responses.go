@@ -39,6 +39,11 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		c.Set("image_generation_call_quality", responsesResponse.GetQuality())
 		c.Set("image_generation_call_size", responsesResponse.GetSize())
 	}
+	if matched, rules, regexErr := service.CheckSensitiveOutputRegex(service.ExtractOutputTextFromResponses(&responsesResponse)); regexErr != nil {
+		return nil, types.NewError(regexErr, types.ErrorCodeSensitiveWordsDetected)
+	} else if matched {
+		return nil, types.NewError(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")), types.ErrorCodeSensitiveWordsDetected)
+	}
 
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
@@ -113,7 +118,13 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 				}
 			}
 		case "response.output_text.delta":
-			// 处理输出文本
+			if matched, rules, regexErr := service.CheckSensitiveOutputRegex(streamResponse.Delta); regexErr != nil {
+				sr.Stop(regexErr)
+				return
+			} else if matched {
+				sr.Stop(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")))
+				return
+			}
 			responseTextBuilder.WriteString(streamResponse.Delta)
 		case dto.ResponsesOutputTypeItemDone:
 			// 函数调用处理

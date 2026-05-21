@@ -58,6 +58,11 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	if oaiError := responsesResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
+	if matched, rules, regexErr := service.CheckSensitiveOutputRegex(service.ExtractOutputTextFromResponses(&responsesResp)); regexErr != nil {
+		return nil, types.NewError(regexErr, types.ErrorCodeSensitiveWordsDetected)
+	} else if matched {
+		return nil, types.NewError(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")), types.ErrorCodeSensitiveWordsDetected)
+	}
 
 	chatId := helper.GetResponseID(c)
 	chatResp, usage, err := service.ResponsesResponseToChatCompletionsResponse(&responsesResp, chatId)
@@ -364,6 +369,13 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			}
 
 			if streamResp.Delta != "" {
+				if matched, rules, regexErr := service.CheckSensitiveOutputRegex(streamResp.Delta); regexErr != nil {
+					sr.Stop(regexErr)
+					return
+				} else if matched {
+					sr.Stop(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")))
+					return
+				}
 				outputText.WriteString(streamResp.Delta)
 				usageText.WriteString(streamResp.Delta)
 				delta := streamResp.Delta
