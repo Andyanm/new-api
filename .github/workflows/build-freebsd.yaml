@@ -1,0 +1,134 @@
+name: Build new-api
+
+on:
+  workflow_dispatch
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build new-api
+
+    steps:
+
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        run: |
+          VERSION=$(git rev-parse --short HEAD)
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Build version: $VERSION"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build Frontend (default)
+        env:
+          CI: ""
+          NODE_OPTIONS: "--max-old-space-size=4096"
+        run: |
+          cd web/default
+
+          bun install
+
+          DISABLE_ESLINT_PLUGIN=true \
+          VITE_REACT_APP_VERSION="${{ steps.version.outputs.tag }}" \
+          bun run build
+
+          cd ../..
+
+      - name: Build Frontend (classic)
+        env:
+          CI: ""
+        run: |
+          cd web/classic
+
+          bun install
+
+          VITE_REACT_APP_VERSION="${{ steps.version.outputs.tag }}" \
+          bun run build
+
+          cd ../..
+
+      - name: Build Backend (FreeBSD)
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          release: 13.2
+
+          prepare: |
+            pkg update
+
+            pkg install -y \
+              jq \
+              wget \
+              curl \
+              git \
+              gcc \
+              bash \
+              gawk \
+              gsed
+
+            wget https://dl.google.com/go/go1.25.6.freebsd-amd64.tar.gz
+
+            tar -C /usr/local \
+            -xzf go1.25.6.freebsd-amd64.tar.gz
+
+            rm go1.25.6.freebsd-amd64.tar.gz
+
+            ln -sf \
+            /usr/local/go/bin/go \
+            /usr/local/bin/go
+
+          run: |
+            git config --global --add safe.directory \
+            /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+
+            go version
+
+            go mod download
+
+            go build \
+            -ldflags "\
+            -s \
+            -w \
+            -X github.com/QuantumNous/new-api/common.Version=${{ steps.version.outputs.tag }} \
+            -extldflags '-static'" \
+            -o new-api
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: new-api-freebsd
+          path: |
+            new-api
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        with:
+          tag_name: build-${{ steps.version.outputs.tag }}
+
+          files: |
+            new-api
+
+          generate_release_notes: true
+
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+
+          retain_days: 1
+          keep_minimum_runs: 8
