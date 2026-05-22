@@ -89,6 +89,8 @@ export function useSidebarData(): SidebarData {
           {
             title: t('Usage Logs'),
             url: '/usage-logs/common',
+            activeUrls: ['/usage-logs/conversation'],
+            configUrls: ['/usage-logs/common', '/usage-logs/conversation'],
             icon: FileText,
           },
           {

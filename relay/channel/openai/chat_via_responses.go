@@ -380,7 +380,8 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			}
 
 			if streamResp.Delta != "" {
-				if matched, rules, regexErr := service.CheckSensitiveOutputRegex(streamResp.Delta); regexErr != nil {
+				currentText := outputText.String() + streamResp.Delta
+				if matched, rules, regexErr := service.CheckSensitiveOutputRegex(currentText); regexErr != nil {
 					sr.Stop(regexErr)
 					return
 				} else if matched {

@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -26,6 +27,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
+
+func extractTextFromGeminiResponse(resp *dto.GeminiChatResponse) string {
+	if resp == nil || len(resp.Candidates) == 0 {
+		return ""
+	}
+	var builder strings.Builder
+	for _, candidate := range resp.Candidates {
+		for _, part := range candidate.Content.Parts {
+			if part.Text != "" {
+				builder.WriteString(part.Text)
+			}
+		}
+	}
+	return builder.String()
+}
 
 // https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference?hl=zh-cn#blob
 var geminiSupportedMimeTypes = map[string]bool{
@@ -1286,6 +1302,18 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			common.SetContextKey(c, constant.ContextKeyAdminRejectReason, fmt.Sprintf("gemini_block_reason=%s", *geminiResponse.PromptFeedback.BlockReason))
 		}
 
+		chunkText := extractTextFromGeminiResponse(&geminiResponse)
+		if chunkText != "" {
+			currentText := responseText.String() + chunkText
+			if matched, rules, regexErr := service.CheckSensitiveOutputRegex(currentText); regexErr != nil {
+				sr.Stop(regexErr)
+				return
+			} else if matched {
+				sr.Stop(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")))
+				return
+			}
+		}
+
 		// 统计图片数量
 		for _, candidate := range geminiResponse.Candidates {
 			for _, part := range candidate.Content.Parts {
@@ -1322,6 +1350,16 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			usage = &dto.Usage{}
 		}
 	}
+	model.RecordConversationLogAsync(model.ConversationLog{
+		UserId:     c.GetInt("id"),
+		Username:   c.GetString("username"),
+		TokenId:    c.GetInt("token_id"),
+		TokenName:  c.GetString("token_name"),
+		ModelName:  info.OriginModelName,
+		RequestId:  c.GetString("X-Request-Id"),
+		PromptText: c.GetString("prompt_text"),
+		ReplyText:  responseText.String(),
+	})
 
 	return usage, nil
 }
@@ -1428,6 +1466,12 @@ func GeminiChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+	responseText := extractTextFromGeminiResponse(&geminiResponse)
+	if matched, rules, regexErr := service.CheckSensitiveOutputRegex(responseText); regexErr != nil {
+		return nil, types.NewError(regexErr, types.ErrorCodeSensitiveWordsDetected)
+	} else if matched {
+		return nil, types.NewError(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")), types.ErrorCodeSensitiveWordsDetected)
+	}
 	if len(geminiResponse.Candidates) == 0 {
 		usage := buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata, info.GetEstimatePromptTokens())
 
@@ -1466,6 +1510,16 @@ func GeminiChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 	fullTextResponse := responseGeminiChat2OpenAI(c, &geminiResponse)
 	fullTextResponse.Model = info.UpstreamModelName
 	usage := buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata, info.GetEstimatePromptTokens())
+	model.RecordConversationLogAsync(model.ConversationLog{
+		UserId:     c.GetInt("id"),
+		Username:   c.GetString("username"),
+		TokenId:    c.GetInt("token_id"),
+		TokenName:  c.GetString("token_name"),
+		ModelName:  info.OriginModelName,
+		RequestId:  c.GetString("X-Request-Id"),
+		PromptText: c.GetString("prompt_text"),
+		ReplyText:  responseText,
+	})
 
 	fullTextResponse.Usage = usage
 

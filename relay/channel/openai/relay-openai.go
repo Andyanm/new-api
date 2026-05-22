@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	modelpkg "github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/openrouter"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -122,6 +123,43 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	var streamItems []string // store stream items
 	var lastStreamData string
 	var secondLastStreamData string // 存储倒数第二个stream data，用于音频模型
+	var sensitiveOutputTextBuilder strings.Builder
+	var streamResumeEnabled bool
+	var resumeID string
+	if req, ok := info.Request.(*dto.GeneralOpenAIRequest); ok && req != nil {
+		// Only enable stream resume when client explicitly sends `stream_resume: true`.
+		// If the field is absent, keep original behavior entirely unchanged.
+		streamResumeEnabled = req.StreamResume != nil && *req.StreamResume
+		resumeID = strings.TrimSpace(req.ResumeID)
+	}
+	if streamResumeEnabled && resumeID != "" {
+		rec, err := modelpkg.GetResumeRecord(resumeID)
+		if err != nil {
+			if modelpkg.IsRecordNotFound(err) {
+				return nil, types.NewError(fmt.Errorf("resume record not found, please regenerate"), types.ErrorCodeInvalidRequest)
+			}
+			return nil, types.NewError(fmt.Errorf("failed to load resume record: %w", err), types.ErrorCodeBadRequestBody)
+		}
+		switch rec.Status {
+		case modelpkg.ResumeStatusRunning:
+			return nil, types.NewError(fmt.Errorf("resume is still running, please retry later"), types.ErrorCodeInvalidRequest)
+		case modelpkg.ResumeStatusExpired:
+			return nil, types.NewError(fmt.Errorf("resume has expired, please regenerate"), types.ErrorCodeInvalidRequest)
+		case modelpkg.ResumeStatusDone:
+			for _, chunk := range strings.Split(rec.Payload, "\n") {
+				if strings.TrimSpace(chunk) == "" {
+					continue
+				}
+				_ = helper.StringData(c, chunk)
+			}
+			return &dto.Usage{}, nil
+		}
+	}
+	if streamResumeEnabled && resumeID == "" {
+		resumeID = "rs_" + common.GetUUID()
+		c.Header("X-Resume-Id", resumeID)
+		_ = modelpkg.CreateRunningResumeRecord(resumeID)
+	}
 
 	// 检查是否为音频模型
 	isAudioModel := strings.Contains(strings.ToLower(model), "audio")
@@ -134,6 +172,25 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 		}
 		if len(data) > 0 {
+			var streamResp dto.ChatCompletionsStreamResponse
+			if err := common.Unmarshal(common.StringToByteSlice(data), &streamResp); err == nil {
+				for _, choice := range streamResp.Choices {
+					deltaContent := choice.Delta.GetContentString()
+					if deltaContent == "" {
+						continue
+					}
+					currentText := sensitiveOutputTextBuilder.String() + deltaContent
+					if matched, rules, regexErr := service.CheckSensitiveOutputRegex(currentText); regexErr != nil {
+						sr.Stop(regexErr)
+						return
+					} else if matched {
+						sr.Stop(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")))
+						return
+					}
+					sensitiveOutputTextBuilder.WriteString(deltaContent)
+				}
+			}
+
 			// 对音频模型，保存倒数第二个stream data
 			if isAudioModel && lastStreamData != "" {
 				secondLastStreamData = lastStreamData
@@ -186,6 +243,9 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	}
 
 	applyUsagePostProcessing(info, usage, common.StringToByteSlice(lastStreamData))
+	if streamResumeEnabled && resumeID != "" {
+		modelpkg.CompleteResumeRecord(resumeID, strings.Join(streamItems, "\n"))
+	}
 
 	HandleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
 

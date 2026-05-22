@@ -243,6 +243,9 @@ func InitLogDB() (err error) {
 		if err == nil {
 			err = InitConversationLogDB()
 		}
+		if err == nil {
+			err = InitResumeDB()
+		}
 		return err
 	} else {
 		common.FatalLog(err)

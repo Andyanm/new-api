@@ -33,6 +33,8 @@ type GeneralOpenAIRequest struct {
 	Prefix              any               `json:"prefix,omitempty"`
 	Suffix              any               `json:"suffix,omitempty"`
 	Stream              *bool             `json:"stream,omitempty"`
+	StreamResume        *bool             `json:"stream_resume,omitempty"`
+	ResumeID            string            `json:"resume_id,omitempty"`
 	StreamOptions       *StreamOptions    `json:"stream_options,omitempty"`
 	MaxTokens           *uint             `json:"max_tokens,omitempty"`
 	MaxCompletionTokens *uint             `json:"max_completion_tokens,omitempty"`

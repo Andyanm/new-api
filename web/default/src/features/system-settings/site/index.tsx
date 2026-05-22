@@ -36,6 +36,8 @@ const defaultSiteSettings: SiteSettings = {
   'legal.privacy_policy': '',
   HeaderNavModules: '',
   SidebarModulesAdmin: '',
+  CustomBackgroundEnabled: false,
+  CustomBackgroundImage: '',
 }
 
 export function SiteSettings() {
