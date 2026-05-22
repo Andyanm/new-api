@@ -27,6 +27,13 @@ type ConversationLog struct {
 
 var CONV_LOG_DB = LOG_DB
 
+func ensureConversationLogDB() error {
+	if CONV_LOG_DB != nil {
+		return nil
+	}
+	return InitConversationLogDB()
+}
+
 func InitConversationLogDB() error {
 	if os.Getenv("CONV_LOG_SQL_DSN") == "" {
 		db, err := gorm.Open(sqlite.Open("oneapi-conversation-logs.db"), &gorm.Config{PrepareStmt: true})
@@ -55,7 +62,7 @@ func RecordConversationLogAsync(c ConversationLog) {
 		c.CreatedAt = time.Now().Unix()
 	}
 	gopool.Go(func() {
-		if CONV_LOG_DB == nil {
+		if err := ensureConversationLogDB(); err != nil {
 			return
 		}
 		_ = CONV_LOG_DB.Create(&c).Error
@@ -63,8 +70,8 @@ func RecordConversationLogAsync(c ConversationLog) {
 }
 
 func GetConversationLogs(offset int, limit int, username string, tokenName string, modelName string) ([]*ConversationLog, int64, error) {
-	if CONV_LOG_DB == nil {
-		return nil, 0, errors.New("conversation log db not initialized")
+	if err := ensureConversationLogDB(); err != nil {
+		return nil, 0, errors.New("conversation log db not initialized: " + err.Error())
 	}
 	tx := CONV_LOG_DB.Model(&ConversationLog{})
 	if username != "" {

@@ -20,6 +20,7 @@ import { useCallback, useMemo } from 'react'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
+import { useIsAdmin } from '@/hooks/use-admin'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SectionPageLayout } from '@/components/layout'
 import type { NavGroup } from '@/components/layout/types'
@@ -64,6 +65,7 @@ const SECTION_META: Record<
 
 function UsageLogsContent() {
   const { t } = useTranslation()
+  const isAdmin = useIsAdmin()
   const navigate = useNavigate()
   const params = route.useParams()
   const activeCategory: UsageLogsSectionId =
@@ -81,6 +83,23 @@ function UsageLogsContent() {
   const tabNavGroups = useMemo<NavGroup[]>(
     () => [
       {
+        title: 'Usage Logs',
+        items: [
+          {
+            title: SECTION_META.common.titleKey,
+            url: '/usage-logs/common',
+          },
+          ...(isAdmin
+            ? [
+                {
+                  title: SECTION_META.conversation.titleKey,
+                  url: '/usage-logs/conversation',
+                },
+              ]
+            : []),
+        ],
+      },
+      {
         title: 'Task Logs',
         items: TASK_LOG_SECTIONS.map((section) => ({
           title: SECTION_META[section].titleKey,
@@ -88,7 +107,7 @@ function UsageLogsContent() {
         })),
       },
     ],
-    []
+    [isAdmin]
   )
   const filteredTabGroups = useSidebarConfig(tabNavGroups)
   const visibleSections = useMemo(
@@ -115,8 +134,7 @@ function UsageLogsContent() {
   )
 
   const pageMeta = SECTION_META[activeCategory] ?? SECTION_META.common
-  const showTaskSwitcher =
-    activeCategory !== 'common' && activeCategory !== 'conversation' && visibleSections.length > 1
+  const showSectionSwitcher = visibleSections.length > 1
 
   return (
     <>
@@ -129,7 +147,7 @@ function UsageLogsContent() {
         </SectionPageLayout.Description>
         <SectionPageLayout.Content>
           <div className='space-y-4'>
-            {showTaskSwitcher && (
+            {showSectionSwitcher && (
               <Tabs value={activeCategory} onValueChange={handleSectionChange}>
                 <TabsList className='group-data-horizontal/tabs:h-auto max-w-full flex-wrap justify-start'>
                   {visibleSections.map((section) => (
