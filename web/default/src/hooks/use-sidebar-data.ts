@@ -94,12 +94,6 @@ export function useSidebarData(): SidebarData {
             icon: FileText,
           },
           {
-            title: t('Conversation Logs'),
-            url: '/usage-logs/conversation',
-            configUrls: ['/usage-logs/common', '/usage-logs/conversation'],
-            icon: FileText,
-          },
-          {
             title: t('Task Logs'),
             url: '/usage-logs/task',
             activeUrls: ['/usage-logs/drawing'],

@@ -141,11 +141,9 @@ export function ConversationLogsPanel() {
             {t('Reset filters')}
           </Button>
         </div>
-      </div>
-
-      <div className='rounded-xl border bg-card p-4 shadow-sm'>
-        <div className='text-sm text-muted-foreground'>
-          {t('Total records')}: {total} · {t('Showing current page')}: {filteredItems.length}
+        <div className='mt-3 text-sm text-muted-foreground'>
+          {t('Total records')}: {total} · {t('Showing current page')}:{' '}
+          {filteredItems.length}
         </div>
       </div>
 
