@@ -32,6 +32,7 @@ const defaultSecuritySettings: SecuritySettings = {
   CheckSensitiveEnabled: false,
   CheckSensitiveOnPromptEnabled: false,
   CheckSensitiveOnOutputEnabled: false,
+  ConversationLogEnabled: false,
   SensitiveWords: '',
   SensitiveOutputRegexRules: '',
   'fetch_setting.enable_ssrf_protection': true,

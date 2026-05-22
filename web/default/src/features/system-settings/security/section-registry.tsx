@@ -51,6 +51,7 @@ const SECURITY_SECTIONS = [
           CheckSensitiveEnabled: settings.CheckSensitiveEnabled,
           CheckSensitiveOnPromptEnabled: settings.CheckSensitiveOnPromptEnabled,
           CheckSensitiveOnOutputEnabled: settings.CheckSensitiveOnOutputEnabled,
+          ConversationLogEnabled: settings.ConversationLogEnabled,
           SensitiveWords: settings.SensitiveWords,
           SensitiveOutputRegexRules: settings.SensitiveOutputRegexRules,
         }}

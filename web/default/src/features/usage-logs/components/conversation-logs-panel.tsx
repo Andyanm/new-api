@@ -1,59 +1,216 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import dayjs from 'dayjs'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { getConversationLogs } from '../api'
+
+type ConversationLogItem = {
+  id: number
+  created_at: number
+  username: string
+  token_name: string
+  model_name: string
+  prompt_text: string
+  reply_text: string
+}
+
+function formatLogTime(createdAt: number): string {
+  if (!createdAt) {
+    return '-'
+  }
+  return dayjs.unix(createdAt).format('YYYY-MM-DD HH:mm:ss')
+}
 
 export function ConversationLogsPanel() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
-  const { data, isLoading } = useQuery({
-    queryKey: ['conversation-logs', page],
-    queryFn: () => getConversationLogs({ p: page, page_size: 20 }),
+  const [username, setUsername] = useState('')
+  const [tokenName, setTokenName] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ['conversation-logs', page, username, tokenName],
+    queryFn: () =>
+      getConversationLogs({
+        p: page,
+        page_size: 20,
+        username,
+        token_name: tokenName,
+      }),
   })
-  type ConversationLogItem = {
-    id: number
-    username: string
-    token_name: string
-    model_name: string
-    prompt_text: string
-    reply_text: string
-  }
+
   const items: ConversationLogItem[] = data?.data?.items ?? []
   const total = data?.data?.total ?? 0
 
+  const filteredItems = useMemo(() => {
+    const from = fromDate ? dayjs(fromDate).startOf('day').unix() : null
+    const to = toDate ? dayjs(toDate).endOf('day').unix() : null
+
+    return items.filter((item) => {
+      if (from && item.created_at < from) {
+        return false
+      }
+      if (to && item.created_at > to) {
+        return false
+      }
+      return true
+    })
+  }, [fromDate, items, toDate])
+
+  const groupedItems = useMemo(() => {
+    const groups = new Map<string, Map<string, ConversationLogItem[]>>()
+
+    for (const item of filteredItems) {
+      const user = item.username || t('Unknown user')
+      const keyName = item.token_name || t('Unknown key')
+      if (!groups.has(user)) {
+        groups.set(user, new Map<string, ConversationLogItem[]>())
+      }
+      const userGroup = groups.get(user)
+      if (!userGroup) {
+        continue
+      }
+      if (!userGroup.has(keyName)) {
+        userGroup.set(keyName, [])
+      }
+      const tokenGroup = userGroup.get(keyName)
+      if (!tokenGroup) {
+        continue
+      }
+      tokenGroup.push(item)
+    }
+
+    return Array.from(groups.entries()).map(([user, tokens]) => ({
+      user,
+      tokens: Array.from(tokens.entries()).map(([token, logs]) => ({
+        token,
+        logs,
+      })),
+    }))
+  }, [filteredItems, t])
+
   return (
-    <div className='space-y-3'>
-      <div className='text-sm text-muted-foreground'>
-        {t('Total records')}: {total}
+    <div className='space-y-4'>
+      <div className='rounded-xl border bg-card p-4 shadow-sm'>
+        <div className='mb-3 text-sm font-medium'>{t('Filter logs')}</div>
+        <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
+          <Input
+            placeholder={t('Filter by username')}
+            value={username}
+            onChange={(event) => {
+              setUsername(event.target.value)
+              setPage(1)
+            }}
+          />
+          <Input
+            placeholder={t('Filter by key name')}
+            value={tokenName}
+            onChange={(event) => {
+              setTokenName(event.target.value)
+              setPage(1)
+            }}
+          />
+          <Input
+            type='date'
+            value={fromDate}
+            onChange={(event) => setFromDate(event.target.value)}
+          />
+          <Input
+            type='date'
+            value={toDate}
+            onChange={(event) => setToDate(event.target.value)}
+          />
+        </div>
+        <div className='mt-3 flex flex-wrap gap-2'>
+          <Button variant='secondary' onClick={() => void refetch()}>
+            {isFetching ? t('Loading...') : t('Refresh')}
+          </Button>
+          <Button
+            variant='outline'
+            onClick={() => {
+              setUsername('')
+              setTokenName('')
+              setFromDate('')
+              setToDate('')
+              setPage(1)
+            }}
+          >
+            {t('Reset filters')}
+          </Button>
+        </div>
       </div>
+
+      <div className='rounded-xl border bg-card p-4 shadow-sm'>
+        <div className='text-sm text-muted-foreground'>
+          {t('Total records')}: {total} · {t('Showing current page')}: {filteredItems.length}
+        </div>
+      </div>
+
       {isLoading ? (
-        <div className='rounded-lg border p-6 text-sm'>{t('Loading...')}</div>
+        <div className='rounded-xl border p-6 text-sm'>{t('Loading...')}</div>
+      ) : groupedItems.length === 0 ? (
+        <div className='rounded-xl border p-6 text-sm text-muted-foreground'>
+          {t('No conversation logs found for current filters.')}
+        </div>
       ) : (
-        items.map((item) => (
-          <div key={item.id} className='rounded-xl border bg-card p-4 shadow-sm'>
-            <div className='mb-2 text-xs text-muted-foreground'>
-              #{item.id} · {item.username} · {item.token_name} · {item.model_name}
+        groupedItems.map((userGroup) => (
+          <div key={userGroup.user} className='rounded-xl border bg-card p-4 shadow-sm'>
+            <div className='mb-3 text-sm font-semibold'>
+              {t('User')}: {userGroup.user}
             </div>
-            <div className='grid gap-3 md:grid-cols-2'>
-              <div>
-                <div className='mb-1 text-xs font-medium'>{t('Prompt')}</div>
-                <pre className='max-h-48 overflow-auto rounded-md bg-muted p-2 text-xs whitespace-pre-wrap'>{item.prompt_text}</pre>
-              </div>
-              <div>
-                <div className='mb-1 text-xs font-medium'>{t('Response')}</div>
-                <pre className='max-h-48 overflow-auto rounded-md bg-muted p-2 text-xs whitespace-pre-wrap'>{item.reply_text}</pre>
-              </div>
+            <div className='space-y-3'>
+              {userGroup.tokens.map((tokenGroup) => (
+                <div key={`${userGroup.user}-${tokenGroup.token}`} className='rounded-lg border p-3'>
+                  <div className='mb-2 text-xs font-medium text-muted-foreground'>
+                    {t('Key')}: {tokenGroup.token} ({tokenGroup.logs.length} {t('records')})
+                  </div>
+                  <div className='space-y-2'>
+                    {tokenGroup.logs.map((item) => (
+                      <details key={item.id} className='rounded-md border bg-muted/20 p-2'>
+                        <summary className='cursor-pointer text-xs text-muted-foreground'>
+                          #{item.id} · {formatLogTime(item.created_at)} · {item.model_name || '-'}
+                        </summary>
+                        <div className='mt-2 grid gap-3 md:grid-cols-2'>
+                          <div>
+                            <div className='mb-1 text-xs font-medium'>{t('Prompt')}</div>
+                            <pre className='max-h-52 overflow-auto rounded-md bg-muted p-2 text-xs whitespace-pre-wrap'>
+                              {item.prompt_text}
+                            </pre>
+                          </div>
+                          <div>
+                            <div className='mb-1 text-xs font-medium'>{t('Response')}</div>
+                            <pre className='max-h-52 overflow-auto rounded-md bg-muted p-2 text-xs whitespace-pre-wrap'>
+                              {item.reply_text}
+                            </pre>
+                          </div>
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ))
       )}
-      <div className='flex gap-2'>
-        <button className='rounded border px-3 py-1 text-sm' onClick={() => setPage((p) => Math.max(1, p - 1))}>
+
+      <div className='flex flex-wrap gap-2'>
+        <Button
+          variant='outline'
+          onClick={() => setPage((current) => Math.max(1, current - 1))}
+          disabled={page === 1}
+        >
           {t('Previous')}
-        </button>
-        <button className='rounded border px-3 py-1 text-sm' onClick={() => setPage((p) => p + 1)}>
+        </Button>
+        <Button variant='outline' onClick={() => setPage((current) => current + 1)}>
           {t('Next')}
-        </button>
+        </Button>
+        <div className='self-center text-xs text-muted-foreground'>
+          {t('Page')}: {page}
+        </div>
       </div>
     </div>
   )
