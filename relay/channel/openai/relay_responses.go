@@ -129,7 +129,8 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 				}
 			}
 		case "response.output_text.delta":
-			if matched, rules, regexErr := service.CheckSensitiveOutputRegex(streamResponse.Delta); regexErr != nil {
+			currentText := responseTextBuilder.String() + streamResponse.Delta
+			if matched, rules, regexErr := service.CheckSensitiveOutputRegex(currentText); regexErr != nil {
 				sr.Stop(regexErr)
 				return
 			} else if matched {

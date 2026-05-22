@@ -69,6 +69,8 @@ export type SiteSettings = {
   'legal.privacy_policy': string
   HeaderNavModules: string
   SidebarModulesAdmin: string
+  CustomBackgroundEnabled: boolean
+  CustomBackgroundImage: string
 }
 
 export type AuthSettings = {
@@ -321,6 +323,7 @@ export type SecuritySettings = {
   CheckSensitiveEnabled: boolean
   CheckSensitiveOnPromptEnabled: boolean
   CheckSensitiveOnOutputEnabled: boolean
+  ConversationLogEnabled: boolean
   SensitiveWords: string
   SensitiveOutputRegexRules: string
   'fetch_setting.enable_ssrf_protection': boolean

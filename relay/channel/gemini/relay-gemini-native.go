@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
@@ -38,9 +40,25 @@ func GeminiTextGenerationHandler(c *gin.Context, info *relaycommon.RelayInfo, re
 	if len(geminiResponse.Candidates) == 0 && geminiResponse.PromptFeedback != nil && geminiResponse.PromptFeedback.BlockReason != nil {
 		common.SetContextKey(c, constant.ContextKeyAdminRejectReason, fmt.Sprintf("gemini_block_reason=%s", *geminiResponse.PromptFeedback.BlockReason))
 	}
+	responseText := extractTextFromGeminiResponse(&geminiResponse)
+	if matched, rules, regexErr := service.CheckSensitiveOutputRegex(responseText); regexErr != nil {
+		return nil, types.NewError(regexErr, types.ErrorCodeSensitiveWordsDetected)
+	} else if matched {
+		return nil, types.NewError(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")), types.ErrorCodeSensitiveWordsDetected)
+	}
 
 	// 计算使用量（基于 UsageMetadata）
 	usage := buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata, info.GetEstimatePromptTokens())
+	model.RecordConversationLogAsync(model.ConversationLog{
+		UserId:     c.GetInt("id"),
+		Username:   c.GetString("username"),
+		TokenId:    c.GetInt("token_id"),
+		TokenName:  c.GetString("token_name"),
+		ModelName:  info.OriginModelName,
+		RequestId:  c.GetString("X-Request-Id"),
+		PromptText: c.GetString("prompt_text"),
+		ReplyText:  responseText,
+	})
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
