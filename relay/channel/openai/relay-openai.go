@@ -122,6 +122,7 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	var streamItems []string // store stream items
 	var lastStreamData string
 	var secondLastStreamData string // 存储倒数第二个stream data，用于音频模型
+	var sensitiveOutputTextBuilder strings.Builder
 
 	// 检查是否为音频模型
 	isAudioModel := strings.Contains(strings.ToLower(model), "audio")
@@ -134,6 +135,25 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 		}
 		if len(data) > 0 {
+			var streamResp dto.ChatCompletionsStreamResponse
+			if err := common.Unmarshal(common.StringToByteSlice(data), &streamResp); err == nil {
+				for _, choice := range streamResp.Choices {
+					deltaContent := choice.Delta.GetContentString()
+					if deltaContent == "" {
+						continue
+					}
+					currentText := sensitiveOutputTextBuilder.String() + deltaContent
+					if matched, rules, regexErr := service.CheckSensitiveOutputRegex(currentText); regexErr != nil {
+						sr.Stop(regexErr)
+						return
+					} else if matched {
+						sr.Stop(fmt.Errorf("sensitive output regex matched: %s", strings.Join(rules, ", ")))
+						return
+					}
+					sensitiveOutputTextBuilder.WriteString(deltaContent)
+				}
+			}
+
 			// 对音频模型，保存倒数第二个stream data
 			if isAudioModel && lastStreamData != "" {
 				secondLastStreamData = lastStreamData

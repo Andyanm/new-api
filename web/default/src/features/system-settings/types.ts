@@ -321,6 +321,7 @@ export type SecuritySettings = {
   CheckSensitiveEnabled: boolean
   CheckSensitiveOnPromptEnabled: boolean
   CheckSensitiveOnOutputEnabled: boolean
+  ConversationLogEnabled: boolean
   SensitiveWords: string
   SensitiveOutputRegexRules: string
   'fetch_setting.enable_ssrf_protection': boolean
