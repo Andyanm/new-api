@@ -18,6 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { getCookie } from '@/lib/cookies'
 import { cn } from '@/lib/utils'
+import {
+  getOptionValue,
+  useSystemOptions,
+} from '@/features/system-settings/hooks/use-system-options'
 import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -33,15 +37,37 @@ type AuthenticatedLayoutProps = {
 
 export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
+  const { data: optionsData } = useSystemOptions()
+  const backgroundSettings = getOptionValue(optionsData?.data, {
+    CustomBackgroundEnabled: false,
+    CustomBackgroundImage: '',
+  })
+  const showCustomBackground =
+    backgroundSettings.CustomBackgroundEnabled &&
+    typeof backgroundSettings.CustomBackgroundImage === 'string' &&
+    backgroundSettings.CustomBackgroundImage.trim() !== ''
 
   return (
     <LayoutProvider>
       <SearchProvider>
         <WorkspaceProvider>
-          <SidebarProvider defaultOpen={defaultOpen} className='flex-col'>
+          <SidebarProvider
+            defaultOpen={defaultOpen}
+            className='relative flex-col overflow-hidden'
+          >
+            {showCustomBackground ? (
+              <div className='pointer-events-none absolute inset-0 z-0'>
+                <img
+                  src={backgroundSettings.CustomBackgroundImage}
+                  alt='custom background'
+                  className='h-full w-full object-cover object-center md:object-center'
+                />
+                <div className='absolute inset-0 bg-background/70' />
+              </div>
+            ) : null}
             <SkipToMain />
             <AppHeader />
-            <div className='flex min-h-0 w-full flex-1'>
+            <div className='relative z-10 flex min-h-0 w-full flex-1'>
               <AppSidebar />
               <SidebarInset
                 className={cn(
