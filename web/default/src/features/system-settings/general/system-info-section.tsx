@@ -20,7 +20,6 @@ import * as z from 'zod'
 import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { RotateCcw } from 'lucide-react'
-import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
@@ -62,8 +61,6 @@ const _systemInfoSchema = z.object({
     user_agreement: z.string().optional(),
     privacy_policy: z.string().optional(),
   }),
-  CustomBackgroundEnabled: z.boolean(),
-  CustomBackgroundImage: z.string().optional(),
 })
 
 type SystemInfoFormValues = z.infer<typeof _systemInfoSchema>
@@ -96,8 +93,6 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
       user_agreement: normalizeValue(defaultValues.legal?.user_agreement),
       privacy_policy: normalizeValue(defaultValues.legal?.privacy_policy),
     },
-    CustomBackgroundEnabled: Boolean(defaultValues.CustomBackgroundEnabled),
-    CustomBackgroundImage: normalizeValue(defaultValues.CustomBackgroundImage),
   }
 
   const systemInfoSchemaWithI18n = z.object({
@@ -116,10 +111,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
       user_agreement: z.string().optional(),
       privacy_policy: z.string().optional(),
     }),
-    CustomBackgroundEnabled: z.boolean(),
-    CustomBackgroundImage: z.string().optional(),
   })
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { form, handleSubmit, handleReset, isDirty, isSubmitting } =
     useSettingsForm<SystemInfoFormValues>({
@@ -190,102 +182,6 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                   <FormDescription>
                     {t(
                       'Switch between the new frontend and the classic frontend. Changes take effect after page reload.'
-                    )}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name='CustomBackgroundEnabled'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('Enable custom background')}</FormLabel>
-                  <FormControl>
-                    <input
-                      type='checkbox'
-                      checked={field.value}
-                      onChange={(event) => field.onChange(event.target.checked)}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {t(
-                      'Enable a custom page background image with a translucent overlay for readability.'
-                    )}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name='CustomBackgroundImage'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('Background image')}</FormLabel>
-                  <FormControl>
-                    <div className='space-y-3'>
-                      <Input
-                        placeholder={t('Paste image URL or upload below')}
-                        value={field.value || ''}
-                        onChange={field.onChange}
-                      />
-                      <input
-                        ref={fileInputRef}
-                        type='file'
-                        accept='image/jpeg,image/png,image/webp'
-                        className='hidden'
-                        onChange={async (event) => {
-                          const file = event.target.files?.[0]
-                          if (!file) return
-                          if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-                            form.setError('CustomBackgroundImage', {
-                              message: t('Only JPG, PNG, and WEBP images are supported.'),
-                            })
-                            return
-                          }
-                          const dataUrl = await new Promise<string>((resolve, reject) => {
-                            const reader = new FileReader()
-                            reader.onload = () => resolve(String(reader.result || ''))
-                            reader.onerror = () => reject(new Error('file_read_failed'))
-                            reader.readAsDataURL(file)
-                          })
-                          field.onChange(dataUrl)
-                        }}
-                      />
-                      <div className='flex gap-2'>
-                        <Button
-                          type='button'
-                          variant='secondary'
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          {t('Upload image')}
-                        </Button>
-                        <Button
-                          type='button'
-                          variant='outline'
-                          onClick={() => field.onChange('')}
-                        >
-                          {t('Clear image')}
-                        </Button>
-                      </div>
-                      {field.value ? (
-                        <div className='overflow-hidden rounded-lg border'>
-                          <img
-                            src={field.value}
-                            alt={t('Background preview')}
-                            className='h-36 w-full object-cover md:h-48'
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    {t(
-                      'Supports jpg/png/webp. The original image is kept and displayed with responsive cover mode on desktop and mobile.'
                     )}
                   </FormDescription>
                   <FormMessage />
