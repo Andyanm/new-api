@@ -17,10 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { TopNavLink } from '../types'
-import {
-  getOptionValue,
-  useSystemOptions,
-} from '@/features/system-settings/hooks/use-system-options'
 import { PublicHeader, type PublicHeaderProps } from './public-header'
 
 type PublicLayoutProps = {
@@ -37,28 +33,8 @@ type PublicLayoutProps = {
 }
 
 export function PublicLayout(props: PublicLayoutProps) {
-  const { data: optionsData } = useSystemOptions()
-  const backgroundSettings = getOptionValue(optionsData?.data, {
-    CustomBackgroundEnabled: false,
-    CustomBackgroundImage: '',
-  })
-  const showCustomBackground =
-    backgroundSettings.CustomBackgroundEnabled &&
-    typeof backgroundSettings.CustomBackgroundImage === 'string' &&
-    backgroundSettings.CustomBackgroundImage.trim() !== ''
   return (
     <div className='bg-background text-foreground relative min-h-svh overflow-x-clip'>
-      {showCustomBackground ? (
-        <div className='pointer-events-none absolute inset-0 z-0'>
-          <img
-            src={backgroundSettings.CustomBackgroundImage}
-            alt='custom background'
-            className='h-full w-full object-cover object-center md:object-center'
-          />
-          <div className='absolute inset-0 bg-background/70' />
-        </div>
-      ) : null}
-      <div className='relative z-10'>
       <PublicHeader
         navContent={props.navContent}
         navLinks={props.navLinks}
@@ -70,14 +46,13 @@ export function PublicLayout(props: PublicLayoutProps) {
         {...props.headerProps}
       />
 
-        {props.showMainContainer !== false ? (
-          <main className='container px-4 py-6 pt-20 md:px-4'>
-            {props.children}
-          </main>
-        ) : (
-          props.children
-        )}
-      </div>
+      {props.showMainContainer !== false ? (
+        <main className='container px-4 py-6 pt-20 md:px-4'>
+          {props.children}
+        </main>
+      ) : (
+        props.children
+      )}
     </div>
   )
 }

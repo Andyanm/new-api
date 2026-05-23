@@ -69,8 +69,6 @@ export type SiteSettings = {
   'legal.privacy_policy': string
   HeaderNavModules: string
   SidebarModulesAdmin: string
-  CustomBackgroundEnabled: boolean
-  CustomBackgroundImage: string
 }
 
 export type AuthSettings = {

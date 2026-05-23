@@ -50,8 +50,6 @@ const SITE_SECTIONS = [
             user_agreement: settings['legal.user_agreement'],
             privacy_policy: settings['legal.privacy_policy'],
           },
-          CustomBackgroundEnabled: settings.CustomBackgroundEnabled,
-          CustomBackgroundImage: settings.CustomBackgroundImage,
         }}
       />
     ),
